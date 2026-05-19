@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>陈香💖</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            overflow: hidden;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+
+        /* 圆形按钮 */
+        #startBtn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: #ff2460;
+            color: #fff;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 999;
+            transition: opacity 0.6s ease;
+        }
+
+        /* 中间主标题 */
+        #mainTitle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff2460;
+            font-size: 60px;
+            font-weight: bold;
+            text-shadow: 0 0 22px #ff4477;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 1.2s ease;
+            z-index: 10;
+        }
+
+        /* 随机文字，不重叠、不碰标题 */
+        .msg {
+            position: absolute;
+            color: #ff88bb;
+            font-size: 28px;
+            white-space: nowrap;
+            text-shadow: 0 0 10px #ff6699;
+            opacity: 0;
+            transition: opacity 1s ease;
+            z-index: 9;
+        }
+
+        #firework {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <button id="startBtn">点击开启专属惊喜</button>
+    <div id="mainTitle">陈香💖</div>
+    <canvas id="firework"></canvas>
+
+    <audio id="bgm" loop src="https://m802.music.126.net/20260520005154/e3113afae0a98e92d342b7d86882be2f/jd-musicrep-ts/f5d8/042a/89f3/5759c923d9c0784efa2dcb9a1604dce3.mp3?vuutv=BuF+z0ZkUpjlkUzOll2OkTMuSijbNEcbPZ2k38kU2ZbQhjtzMWSVFUigUOuuxm41FXgSSc9zgC6AjZtatCX7AAWe4VTksJeIPSn/2EhqJZzTGeF1yjVtxwxe/oyDYQo3b+9BBThnbb/vl2d3A9bQ6yZkVdJ5LEk/TaHqwOe375pLa45IIswCU5EYbkmNk1Dv6kgeq2wRLAh9l4ic8NAqRicSDlldi8vv+qs+QZz6lK1RkvSVsEaiAWTDvf1WSQe0agTo1OCdwG8ZF98W2QwPLwD+E4bLPWeJ2qEIqsPKrJbnXjCQZpIJxOKFYNQI3vp+n8lL/BMRpWqBoLo0jqhmVqeVxFmMQYYtTr/IdQFiGxY=&cdntag=bWFyaz1vc193ZWIscXVhbGl0eV9zdGFuZGFyZA" type="audio/mpeg"></audio>
+    <script>
+        const btn = document.getElementById('startBtn');
+        const title = document.getElementById('mainTitle');
+        const canvas = document.getElementById('firework');
+        const ctx = canvas.getContext('2d');
+        const bgm = document.getElementById('bgm');
+        canvas.width = innerWidth;
+        canvas.height = innerHeight;
+
+        const words = ["520快乐", "我喜欢你", "满眼都是你", "遇到你超开心", "余生多指教", "做我女朋友", "你在身边 在你身边", "和我在一起吧", "长日欢喜 四季与你"];
+        let usedRects = [];  // 存储已添加文字的边界矩形
+        const maxCount = 15;
+        let wordIndex = 0;  // 当前要显示的文字索引
+        let indexCopy = 0;  // 复制的索引，用于随机顺序显示
+        // 核心：随机位置 + 双重防重叠（根据标题实际坐标动态计算）
+        function getSafePos(text) {
+            let x, y, ok = false, count = 0;
+            while (!ok && count < 150) {
+                // 随机大范围
+                x = (Math.random() * 60 + 20) + '%';
+                y = (Math.random() * 60 + 20) + '%';
+
+                // 先创建临时元素来计算实际尺寸
+                const tempEl = document.createElement('div');
+                tempEl.className = 'msg';
+                tempEl.innerText = text;
+                tempEl.style.left = x;
+                tempEl.style.top = y;
+                tempEl.style.opacity = 0;
+                document.body.appendChild(tempEl);
+
+                const newRect = tempEl.getBoundingClientRect();
+                document.body.removeChild(tempEl);
+
+                // 1. 获取标题的实际坐标，动态计算避开区域
+                const titleRect = title.getBoundingClientRect();
+
+                // 文字不进入标题区域及其周围缓冲带
+                const padding = 20;
+                if (rectIntersect(newRect, expandRect(titleRect, padding))) {
+                    count++; continue;
+                }
+
+                // 2. 检查是否与已存在的文字重叠
+                ok = true;
+                for (let rect of usedRects) {
+                    if (rectIntersect(newRect, expandRect(rect, padding))) {
+                        ok = false;
+                        break;
+                    }
+                }
+                count++;
+            }
+
+            return { x, y };
+        }
+
+        // 矩形相交检测
+        function rectIntersect(rect1, rect2) {
+            return rect1.left < rect2.right &&
+                rect1.right > rect2.left &&
+                rect1.top < rect2.bottom &&
+                rect1.bottom > rect2.top;
+        }
+
+        // 扩展矩形边界
+        function expandRect(rect, padding) {
+            return {
+                left: rect.left - padding,
+                right: rect.right + padding,
+                top: rect.top - padding,
+                bottom: rect.bottom + padding
+            };
+        }
+
+        // 烟花类
+        class Firework {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = canvas.height;
+                this.speedY = Math.random() * 3 + 2;
+                this.particles = [];
+                this.color = `hsl(${345 + Math.random() * 15},100%,60%)`;
+            }
+            update() {
+                this.y -= this.speedY;
+                const targetY = Math.random() * canvas.height * 0.5;
+                if (this.speedY > 0 && this.y < targetY) {
+                    // 烟花从中心向外炸开
+                    for (let i = 0; i < 40; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const speed = Math.random() * 2 + 1;
+                        this.particles.push({
+                            x: this.x,
+                            y: this.y,
+                            speedX: Math.cos(angle) * speed,
+                            speedY: Math.sin(angle) * speed,
+                            alpha: 1
+                        })
+                    }
+                    this.speedY = 0;
+                }
+                // 粒子飞散并逐渐消失
+                this.particles.forEach(p => {
+                    p.x += p.speedX;
+                    p.y += p.speedY;
+                    p.speedY += 0.05; // 重力
+                    p.alpha -= 0.018;
+                })
+            }
+            draw() {
+                ctx.fillStyle = this.color;
+                // 上升的烟花
+                if (this.speedY > 0) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                // 爆炸粒子
+                this.particles.forEach(p => {
+                    ctx.globalAlpha = p.alpha;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                })
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        let fireworks = [];
+        function animate() {
+            ctx.fillStyle = 'rgba(0,0,0,0.12)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (Math.random() < 0.02) fireworks.push(new Firework());
+            fireworks.forEach((f, i) => {
+                f.update(); f.draw();
+                if (f.particles.length && f.particles[0].alpha <= 0) fireworks.splice(i, 1);
+            })
+            requestAnimationFrame(animate);
+        }
+
+        // 点击执行顺序：按钮消失 → 烟花+BGM启动 → 先标题出现 → 延迟后文字逐个出现
+        btn.onclick = () => {
+            btn.style.opacity = 0;
+            setTimeout(() => btn.style.display = 'none', 600);
+
+            canvas.style.display = 'block';
+            animate();
+            bgm.volume = 0.8;
+            console.log('BGM readyState:', bgm.readyState, 'networkState:', bgm.networkState);
+            bgm.play().then(() => console.log('BGM播放成功')).catch(err => console.log('BGM播放失败:', err.message));
+
+            // 第一步：标题先淡入
+            setTimeout(() => { title.style.opacity = 1; }, 400);
+
+            // 第二步：标题出现后，延迟1.5秒，文字才开始逐个出现
+            setTimeout(() => {
+                function showWord() {
+                    if (indexCopy >= maxCount) return;
+                    if (wordIndex >= words.length) wordIndex = 0;
+                    const text = words[wordIndex];  // 按顺序获取文字
+                    const pos = getSafePos(text);
+                    const el = document.createElement('div');
+                    el.className = 'msg';
+                    el.innerText = text;
+                    el.style.left = pos.x;
+                    el.style.top = pos.y;
+                    document.body.appendChild(el);
+                    // 记录当前文字的边界矩形，用于后续防重叠检测
+                    usedRects.push(el.getBoundingClientRect());
+                    wordIndex++;  // 索引递增
+                    indexCopy++;
+                    setTimeout(() => { el.style.opacity = 1; }, 100);
+                    setTimeout(showWord, 1400);
+                }
+                showWord();
+            }, 1500);
+        };
+
+        window.onresize = () => {
+            canvas.width = innerWidth;
+            canvas.height = innerHeight;
+        }
+    </script>
+</body>
+
+</html>
